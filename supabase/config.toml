@@ -1,0 +1,4 @@
+project_id = "ai-chatbot"
+
+[functions.chat]
+verify_jwt = false # Verification is handled directly inside the function using supabase.auth.getUser()
