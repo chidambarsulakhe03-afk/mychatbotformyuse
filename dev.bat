@@ -1,0 +1,3 @@
+@echo off
+echo Starting AI Chatbot dev server...
+npm.cmd run dev
