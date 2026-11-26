@@ -11,6 +11,7 @@ A modern, high-performance, ChatGPT-inspired AI conversational application built
 - **Context-Aware Memory**: Previous conversation history is dynamically supplied to the model.
 - **Markdown & Code Syntax Highlighting**: GitHub-flavored markdown with multi-language code highlighting (`Prism.js`), language badges, and one-click copy buttons.
 - **Message Action Bar**: Copy message content, regenerate responses, and abort/stop generation mid-stream.
+- **Image and File Attachments**: Attach up to five PNG, JPEG, or WebP images and supported code/text files (4 MB per image, 8 MB total, 512 KB per text file); images use the vision-capable Groq model automatically.
 - **Chat History Management**: Create new chats, rename conversation titles inline, delete chats with confirmation, and clear messages.
 - **Conversation Organization**: Chats are automatically grouped by date (*Today*, *Yesterday*, *Previous 7 Days*, *Previous 30 Days*, *Older*).
 - **Model Selector**: Switch seamlessly between Groq chat models:

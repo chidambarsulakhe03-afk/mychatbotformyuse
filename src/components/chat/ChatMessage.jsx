@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import CodeBlock from './CodeBlock';
-import { Copy, Check, RotateCw, Bot, User, AlertCircle } from 'lucide-react';
+import { Copy, Check, RotateCw, Bot, User, AlertCircle, FileText, Image } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function ChatMessage({
@@ -76,7 +76,32 @@ export default function ChatMessage({
           {/* Content */}
           <div className="prose dark:prose-invert max-w-none text-sm md:text-base leading-relaxed text-gray-800 dark:text-gray-100 break-words">
             {isUser ? (
-              <p className="whitespace-pre-wrap">{message.content}</p>
+              <>
+                {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+                {message.attachments?.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {message.attachments.map((attachment, index) => (
+                      <div
+                        key={`${attachment.name}-${index}`}
+                        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs dark:border-gray-700 dark:bg-gray-800/70"
+                      >
+                        {attachment.preview ? (
+                          <img
+                            src={attachment.preview}
+                            alt={attachment.name}
+                            className="h-12 w-12 rounded object-cover"
+                          />
+                        ) : attachment.type?.startsWith('image/') ? (
+                          <Image className="h-4 w-4" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                        <span className="max-w-[200px] truncate">{attachment.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <div>
                 <ReactMarkdown

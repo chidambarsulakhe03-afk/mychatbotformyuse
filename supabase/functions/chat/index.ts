@@ -54,11 +54,39 @@ serve(async (req: Request) => {
       );
     }
 
-    const { conversationId, content, model, systemPrompt } = await req.json();
+    const {
+      conversationId,
+      content,
+      model,
+      systemPrompt,
+      attachments = [],
+    } = await req.json();
 
     if (!conversationId) {
       return new Response(
         JSON.stringify({ error: "conversationId is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!Array.isArray(attachments) || attachments.length > 5) {
+      return new Response(
+        JSON.stringify({ error: "A maximum of 5 image attachments is allowed" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const imageAttachments = attachments.filter((attachment: any) => {
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+      const maxDataUrlLength = Math.ceil(4 * 1024 * 1024 * 4 / 3) + 128;
+      return attachment &&
+        allowedTypes.includes(attachment.type) &&
+        typeof attachment.data === "string" &&
+        attachment.data.startsWith(`data:${attachment.type};base64,`) &&
+        attachment.data.length <= maxDataUrlLength;
+    });
+    if (imageAttachments.length !== attachments.length) {
+      return new Response(
+        JSON.stringify({ error: "One or more image attachments are invalid or too large" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -126,13 +154,30 @@ serve(async (req: Request) => {
       "Provide clear, well-structured answers using GitHub-flavored Markdown. " +
       "Format code snippets with appropriate language tags for syntax highlighting.";
 
-    const groqMessages = [
+    const groqMessages: Array<{
+      role: string;
+      content: string | Array<Record<string, unknown>>;
+    }> = [
       { role: "system", content: systemInstruction },
       ...(historyMessages || []).map((m: any) => ({
         role: m.role,
         content: m.content,
       })),
     ];
+    if (imageAttachments.length > 0) {
+      for (let index = groqMessages.length - 1; index >= 1; index -= 1) {
+        if (groqMessages[index].role === "user") {
+          groqMessages[index].content = [
+            { type: "text", text: groqMessages[index].content || "Please analyze the attached image(s)." },
+            ...imageAttachments.map((attachment: any) => ({
+              type: "image_url",
+              image_url: { url: attachment.data },
+            })),
+          ];
+          break;
+        }
+      }
+    }
 
     const selectedModel = model || Deno.env.get("GROQ_MODEL") || DEFAULT_MODEL;
 

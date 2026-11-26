@@ -12,6 +12,7 @@ export async function streamChatCompletion({
   systemPrompt,
   onChunk,
   signal,
+  attachments = [],
 }) {
   // Sanitize model name to prevent old/unsupported model errors
   const activeModel =
@@ -41,6 +42,9 @@ export async function streamChatCompletion({
           content,
           model: activeModel,
           systemPrompt,
+          attachments: attachments
+            .filter((attachment) => attachment.type?.startsWith('image/'))
+            .map(({ name, type, data }) => ({ name, type, data })),
         }),
         signal,
       });
@@ -126,7 +130,7 @@ export async function streamChatCompletion({
           const parsed = JSON.parse(local);
           history = parsed
             .filter((m) => m.content && !m.isStreaming)
-            .map((m) => ({ role: m.role, content: m.content }))
+            .map((m) => ({ role: m.role, content: m.contextContent || m.content }))
             .slice(-20);
         }
       } catch {}
@@ -146,6 +150,31 @@ export async function streamChatCompletion({
       },
       ...history,
     ];
+
+    const imageAttachments = attachments.filter(
+      (attachment) => attachment.type?.startsWith('image/') && attachment.data
+    );
+    if (imageAttachments.length > 0) {
+      let lastUserIndex = -1;
+      for (let index = messages.length - 1; index >= 0; index -= 1) {
+        if (messages[index].role === 'user') {
+          lastUserIndex = index;
+          break;
+        }
+      }
+      if (lastUserIndex >= 0) {
+        messages[lastUserIndex] = {
+          ...messages[lastUserIndex],
+          content: [
+            { type: 'text', text: messages[lastUserIndex].content || 'Please analyze the attached image(s).' },
+            ...imageAttachments.map((attachment) => ({
+              type: 'image_url',
+              image_url: { url: attachment.data },
+            })),
+          ],
+        };
+      }
+    }
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',

@@ -24,7 +24,13 @@ export function useChat({ conversationId, onConversationCreated, selectedModel }
 
   const saveLocalMessages = useCallback((convId, msgs) => {
     try {
-      localStorage.setItem(`chatai_msgs_${convId}`, JSON.stringify(msgs));
+      const safeMessages = msgs.map((message) => ({
+        ...message,
+        attachments: message.attachments?.map(({ id, name, type, size }) => ({
+          id, name, type, size,
+        })),
+      }));
+      localStorage.setItem(`chatai_msgs_${convId}`, JSON.stringify(safeMessages));
     } catch (e) {
       console.error(e);
     }
@@ -69,15 +75,21 @@ export function useChat({ conversationId, onConversationCreated, selectedModel }
   }, [fetchMessages]);
 
   // Send message
-  const sendMessage = async (content) => {
+  const sendMessage = async (content, options = {}) => {
     if (!content.trim() || isStreaming) return;
+    const {
+      attachments = [],
+      displayContent = content,
+      model = selectedModel,
+    } = options;
 
     let targetConvId = conversationId;
 
     // If no active conversation, create one first
     if (!targetConvId) {
       if (onConversationCreated) {
-        const title = content.trim().slice(0, 30) + (content.length > 30 ? '...' : '');
+        const titleText = (options.displayContent || content).trim();
+        const title = titleText.slice(0, 30) + (titleText.length > 30 ? '...' : '');
         const newConv = await onConversationCreated(title);
         if (!newConv) return;
         targetConvId = newConv.id;
@@ -93,7 +105,12 @@ export function useChat({ conversationId, onConversationCreated, selectedModel }
       id: userMessageId,
       conversation_id: targetConvId,
       role: 'user',
-      content: content.trim(),
+      content: displayContent.trim(),
+      contextContent: content.trim(),
+      attachments: attachments.map(({ id, name, type, size, preview, data }) => ({
+        id, name, type, size, preview,
+        data,
+      })),
       created_at: new Date().toISOString(),
     };
 
@@ -111,19 +128,6 @@ export function useChat({ conversationId, onConversationCreated, selectedModel }
     setIsStreaming(true);
     setError(null);
 
-    // Save user message to Supabase if table exists
-    if (isSupabaseConfigured && targetConvId && targetConvId.length === 36) {
-      try {
-        await supabase.from('messages').insert({
-          conversation_id: targetConvId,
-          role: 'user',
-          content: content.trim(),
-        });
-      } catch (e) {
-        console.warn('Could not insert user message to Supabase:', e);
-      }
-    }
-
     const controller = new AbortController();
     abortControllerRef.current = controller;
     let accumulatedContent = '';
@@ -132,7 +136,8 @@ export function useChat({ conversationId, onConversationCreated, selectedModel }
       await streamChatCompletion({
         conversationId: targetConvId,
         content: content.trim(),
-        model: selectedModel || 'qwen/qwen3.8-27b',
+        model: model || 'qwen/qwen3.8-27b',
+        attachments,
         signal: controller.signal,
         onChunk: (delta) => {
           accumulatedContent += delta;
@@ -157,18 +162,6 @@ export function useChat({ conversationId, onConversationCreated, selectedModel }
         return updated;
       });
 
-      // Save assistant response to Supabase
-      if (isSupabaseConfigured && targetConvId && targetConvId.length === 36 && accumulatedContent) {
-        try {
-          await supabase.from('messages').insert({
-            conversation_id: targetConvId,
-            role: 'assistant',
-            content: accumulatedContent,
-          });
-        } catch (e) {
-          console.warn('Could not insert assistant message to Supabase:', e);
-        }
-      }
     } catch (err) {
       if (err.name === 'AbortError') {
         setMessages((prev) => {
@@ -254,6 +247,7 @@ export function useChat({ conversationId, onConversationCreated, selectedModel }
         conversationId,
         content: '',
         model: selectedModel || 'llama-3.3-70b-versatile',
+        attachments: userMsg.attachments || [],
         signal: controller.signal,
         onChunk: (delta) => {
           accumulatedContent += delta;

@@ -1,3 +1,5 @@
+export const VISION_MODEL_ID = 'meta-llama/llama-4-scout-17b-16e-instruct';
+
 export const AVAILABLE_MODELS = [
   {
     id: 'qwen/qwen3.8-27b',
@@ -18,6 +20,13 @@ export const AVAILABLE_MODELS = [
     name: 'GPT-OSS 20B (Groq)',
     provider: 'Groq',
     description: 'Lightweight fast assistant',
+    isDefault: false,
+  },
+  {
+    id: VISION_MODEL_ID,
+    name: 'Llama 4 Scout (Vision)',
+    provider: 'Groq',
+    description: 'Analyze images and visual input',
     isDefault: false,
   },
 ];
